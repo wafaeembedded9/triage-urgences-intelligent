@@ -2,7 +2,7 @@ CREATE DATABASE medicaal_triage_ai CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode
 USE medicaal_triage_ai;
 
 -- ========================================
--- 1. TABLE DES UTILISATEURS (médecins et infirmiers)
+-- 1. TABLE DES UTILISATEURS (médecins et infirmieers)
 -- ========================================
 CREATE TABLE utilisateurs (
     id INT AUTO_INCREMENT PRIMARY KEY,
