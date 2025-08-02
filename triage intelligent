@@ -1,0 +1,551 @@
+# CELLULE 1 : IMPORTATION DES BIBLIOTHÈQUES NÉCESSAIRES
+print("=== IMPORTATION DES BIBLIOTHÈQUES ===")
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+import warnings
+warnings.filterwarnings('ignore')
+plt.style.use('default')
+sns.set_palette("husl")
+print("✓ Toutes les bibliothèques importées avec succès!")
+
+# CELLULE 2 : CHARGEMENT DU DATASET MÉDICAL
+print("\n=== CHARGEMENT DU DATASET MÉDICAL ===")
+nom_fichier = 'Projet_Urgences_IA/patient_priority.csv'
+try:
+    df = pd.read_csv(nom_fichier)
+    print(f"✓ Dataset '{nom_fichier}' chargé avec succès!")
+    print(f"✓ Nombre total de patients : {df.shape[0]}")
+    print(f"✓ Nombre de caractéristiques : {df.shape[1]}")
+except FileNotFoundError:
+    print(f"❌ ERREUR : Fichier '{nom_fichier}' non trouvé!")
+    print("Vérifiez le chemin du fichier")
+
+# CELLULE 3 : EXPLORATION INITIALE DES DONNÉES
+print("\n=== EXPLORATION INITIALE DES DONNÉES ===")
+print("Aperçu des premières lignes:")
+print(df.head())
+print(f"\nStructure du dataset:")
+print(f"- Lignes (patients) : {df.shape[0]}")
+print(f"- Colonnes (caractéristiques) : {df.shape[1]}")
+print(f"\nNoms des colonnes:")
+for i, col in enumerate(df.columns, 1):
+    print(f"{i:2d}. {col}")
+
+# CELLULE 4 : ANALYSE DES TYPES DE DONNÉES
+print("\n=== ANALYSE DES TYPES DE DONNÉES ===")
+print("Informations détaillées sur le dataset:")
+print(df.info())
+print(f"\nRésumé des types:")
+print(f"- Variables numériques : {len(df.select_dtypes(include=[np.number]).columns)}")
+print(f"- Variables catégorielles : {len(df.select_dtypes(include=['object']).columns)}")
+
+# CELLULE 5 : VÉRIFICATION DE LA VARIABLE CIBLE (TRIAGE)
+print("\n=== VÉRIFICATION DE LA VARIABLE CIBLE ===")
+if 'triage' in df.columns:
+    print("✓ Variable cible 'triage' trouvée!")
+    print(f"Classes de triage disponibles: {df['triage'].unique()}")
+    print(f"Nombre de classes: {df['triage'].nunique()}")
+    print(f"\nDistribution des classes:")
+    distribution = df['triage'].value_counts()
+    print(distribution)
+    print(f"\nPourcentages:")
+    for classe, count in distribution.items():
+        pourcentage = (count / len(df)) * 100
+        print(f"  {classe}: {count} patients ({pourcentage:.1f}%)")
+else:
+    print("❌ Variable cible 'triage' non trouvée!")
+
+# CELLULE 6 : VISUALISATION DE LA DISTRIBUTION DES CLASSES
+print("\n=== VISUALISATION DE LA DISTRIBUTION ===")
+if 'triage' in df.columns:
+    plt.figure(figsize=(15, 6))
+    
+    # Graphique en barres
+    plt.subplot(1, 2, 1)
+    colors = ['red', 'orange', 'yellow', 'green']
+    triage_counts = df['triage'].value_counts()
+    bars = plt.bar(triage_counts.index, triage_counts.values, color=colors)
+    plt.title('Distribution des Niveaux de Triage', fontsize=14, fontweight='bold')
+    plt.xlabel('Niveau de Triage')
+    plt.ylabel('Nombre de Patients')
+    plt.xticks(rotation=45)
+    
+    # Ajouter les valeurs sur les barres
+    for bar, value in zip(bars, triage_counts.values):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 10,
+                str(value), ha='center', va='bottom', fontweight='bold')
+    
+    # Graphique en secteurs
+    plt.subplot(1, 2, 2)
+    plt.pie(triage_counts.values, labels=triage_counts.index, autopct='%1.1f%%',
+            colors=colors, startangle=90)
+    plt.title('Répartition des Niveaux de Triage', fontsize=14, fontweight='bold')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Analyse du déséquilibre des classes
+    print("📊 ANALYSE DU DÉSÉQUILIBRE:")
+    max_class = triage_counts.max()
+    min_class = triage_counts.min()
+    ratio = max_class / min_class
+    print(f"  Ratio de déséquilibre: {ratio:.1f}:1")
+    if ratio > 10:
+        print("  ⚠️ Déséquilibre significatif détecté!")
+else:
+    print("Impossible de créer la visualisation sans la variable cible")
+
+# CELLULE 7 : DÉTECTION DES PROBLÈMES DANS LES DONNÉES
+print("\n=== DÉTECTION DES PROBLÈMES ===")
+print("🔍 AUDIT QUALITÉ DES DONNÉES:")
+
+# 1. Valeurs manquantes
+print("\n1. Valeurs manquantes:")
+valeurs_manquantes = df.isnull().sum()
+total_manquantes = valeurs_manquantes.sum()
+if total_manquantes > 0:
+    print(f"  ⚠️ {total_manquantes} valeurs manquantes détectées:")
+    for col, count in valeurs_manquantes.items():
+        if count > 0:
+            pourcentage = (count / len(df)) * 100
+            print(f"    - {col}: {count} ({pourcentage:.1f}%)")
+else:
+    print("  ✓ Aucune valeur manquante!")
+
+# 2. Doublons
+print("\n2. Doublons:")
+doublons = df.duplicated().sum()
+if doublons > 0:
+    print(f"  ⚠️ {doublons} lignes dupliquées détectées!")
+else:
+    print("  ✓ Aucun doublon!")
+
+# 3. Cohérence des données
+print("\n3. Cohérence des données:")
+numeriques = df.select_dtypes(include=[np.number]).columns
+for col in numeriques:
+    if len(df[col].unique()) == 1:
+        print(f"  ⚠️ {col}: valeur constante détectée")
+    negative_values = (df[col] < 0).sum()
+    if negative_values > 0:
+        print(f"  ⚠️ {col}: {negative_values} valeurs négatives")
+
+print(f"\n✓ Audit terminé")
+
+# CELLULE 8 : NETTOYAGE DES DONNÉES
+print("\n=== NETTOYAGE DES DONNÉES ===")
+print("🧹 DÉBUT DU NETTOYAGE:")
+
+# Sauvegarder les données originales
+df_original = df.copy()
+print(f"✓ Sauvegarde des données originales: {df_original.shape}")
+
+# 1. Suppression des lignes avec triage manquant
+print("\n1. Traitement des valeurs manquantes critiques:")
+if 'triage' in df.columns:
+    lignes_avant = len(df)
+    df = df.dropna(subset=['triage'])
+    lignes_supprimees = lignes_avant - len(df)
+    print(f"  ✓ {lignes_supprimees} patients sans triage supprimés")
+    print(f"  ✓ {len(df)} patients restants")
+
+# 2. Traitement des autres valeurs manquantes
+print("\n2. Traitement des autres valeurs manquantes:")
+# Variables numériques: remplacer par la médiane
+colonnes_numeriques = df.select_dtypes(include=[np.number]).columns
+for col in colonnes_numeriques:
+    if df[col].isnull().sum() > 0:
+        mediane = df[col].median()
+        df[col].fillna(mediane, inplace=True)
+        print(f"  ✓ {col}: remplacé par médiane ({mediane:.2f})")
+
+# Variables catégorielles: remplacer par le mode
+colonnes_categorielles = df.select_dtypes(include=['object']).columns
+for col in colonnes_categorielles:
+    if df[col].isnull().sum() > 0:
+        mode = df[col].mode()[0]
+        df[col].fillna(mode, inplace=True)
+        print(f"  ✓ {col}: remplacé par mode ({mode})")
+
+# 3. Suppression des doublons
+print("\n3. Suppression des doublons:")
+doublons_avant = df.duplicated().sum()
+if doublons_avant > 0:
+    df = df.drop_duplicates()
+    print(f"  ✓ {doublons_avant} doublons supprimés")
+else:
+    print("  ✓ Aucun doublon à supprimer")
+
+# Vérification finale
+print(f"\n✅ NETTOYAGE TERMINÉ:")
+print(f"  Dataset final: {df.shape}")
+print(f"  Valeurs manquantes restantes: {df.isnull().sum().sum()}")
+
+# CELLULE 9 : DISTRIBUTION APRÈS NETTOYAGE
+print("\n=== DISTRIBUTION APRÈS NETTOYAGE ===")
+print("📊 NOUVELLE DISTRIBUTION DES CLASSES:")
+triage_counts_clean = df['triage'].value_counts()
+print(triage_counts_clean)
+
+print("\nPourcentages après nettoyage:")
+for niveau, count in triage_counts_clean.items():
+    pourcentage = (count / len(df)) * 100
+    print(f"  {niveau}: {count} patients ({pourcentage:.1f}%)")
+
+# Nouveau graphique après nettoyage
+plt.figure(figsize=(15, 6))
+plt.subplot(1, 2, 1)
+colors = ['red', 'orange', 'yellow', 'green']
+bars = plt.bar(triage_counts_clean.index, triage_counts_clean.values, color=colors)
+plt.title('Distribution Après Nettoyage', fontsize=14, fontweight='bold')
+plt.xlabel('Niveau de Triage')
+plt.ylabel('Nombre de Patients')
+plt.xticks(rotation=45)
+
+for bar, value in zip(bars, triage_counts_clean.values):
+    plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 10,
+            str(value), ha='center', va='bottom', fontweight='bold')
+
+plt.subplot(1, 2, 2)
+plt.pie(triage_counts_clean.values, labels=triage_counts_clean.index, 
+        autopct='%1.1f%%', colors=colors, startangle=90)
+plt.title('Répartition Après Nettoyage', fontsize=14, fontweight='bold')
+
+plt.tight_layout()
+plt.show()
+
+print(f"\n✅ Dataset prêt pour l'entraînement: {df.shape[0]} patients")
+
+# CELLULE 10 : ENCODAGE DES VARIABLES CATÉGORIELLES
+print("\n=== ENCODAGE DES VARIABLES CATÉGORIELLES ===")
+print("🔄 TRANSFORMATION DES DONNÉES:")
+
+# Identifier les variables catégorielles (sauf la cible)
+categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+if 'triage' in categorical_cols:
+    categorical_cols.remove('triage')
+
+print(f"Variables à encoder: {categorical_cols}")
+
+# Encoder les variables catégorielles
+label_encoders = {}
+for col in categorical_cols:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col])
+    label_encoders[col] = le
+    print(f"✓ {col} encodé: {len(le.classes_)} classes")
+
+# Encoder la variable cible
+target_encoder = LabelEncoder()
+df['triage_encoded'] = target_encoder.fit_transform(df['triage'])
+
+print(f"\n✓ Variable cible encodée:")
+for i, classe in enumerate(target_encoder.classes_):
+    print(f"  {classe} → {i}")
+
+print(f"\n✅ Encodage terminé: {df.shape}")
+
+# CELLULE 11 : DÉTECTION DES VALEURS ABERRANTES
+print("\n=== DÉTECTION DES VALEURS ABERRANTES ===")
+print("📈 ANALYSE DES OUTLIERS:")
+
+# Sélectionner les variables numériques
+numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+if 'triage_encoded' in numeric_cols:
+    numeric_cols.remove('triage_encoded')
+
+print(f"Variables numériques analysées: {len(numeric_cols)}")
+
+# Méthode IQR pour détecter les outliers
+outliers_info = {}
+for col in numeric_cols:
+    Q1 = df[col].quantile(0.25)
+    Q3 = df[col].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outliers = df[(df[col] < lower_bound) | (df[col] > upper_bound)]
+    outliers_info[col] = len(outliers)
+    
+    print(f"  {col}: {len(outliers)} outliers ({len(outliers)/len(df)*100:.1f}%)")
+
+# Visualisation des outliers (premières 6 variables)
+if len(numeric_cols) > 0:
+    plt.figure(figsize=(18, 12))
+    for i, col in enumerate(numeric_cols[:6], 1):
+        plt.subplot(2, 3, i)
+        plt.boxplot(df[col], patch_artist=True, 
+                   boxprops=dict(facecolor='lightblue', alpha=0.7))
+        plt.title(f'Boxplot - {col}', fontweight='bold')
+        plt.ylabel('Valeurs')
+        plt.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.show()
+
+print(f"\n✅ Détection des outliers terminée")
+
+# CELLULE 12 : PRÉPARATION DES DONNÉES POUR L'IA
+print("\n=== PRÉPARATION DES DONNÉES POUR L'IA ===")
+print("🎯 PRÉPARATION FINALE:")
+
+# Séparer caractéristiques et variable cible
+X = df.drop(['triage', 'triage_encoded'], axis=1)
+y = df['triage_encoded']
+
+print(f"✓ Matrice des caractéristiques (X): {X.shape}")
+print(f"✓ Vecteur cible (y): {y.shape}")
+
+# Normalisation des données
+print("\n🔧 Normalisation des données:")
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+print(f"✓ Données normalisées: {X_scaled.shape}")
+
+# Division train/test
+print("\n🎲 Division train/test:")
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y, test_size=0.2, random_state=42, stratify=y
+)
+
+print(f"✓ Entraînement: {X_train.shape[0]} patients ({X_train.shape[0]/len(df)*100:.1f}%)")
+print(f"✓ Test: {X_test.shape[0]} patients ({X_test.shape[0]/len(df)*100:.1f}%)")
+
+# Vérifier la distribution stratifiée
+print(f"\nDistribution dans l'ensemble d'entraînement:")
+train_dist = pd.Series(y_train).value_counts().sort_index()
+for i, count in train_dist.items():
+    classe = target_encoder.classes_[i]
+    print(f"  {classe}: {count} patients ({count/len(y_train)*100:.1f}%)")
+
+print(f"\n✅ Données prêtes pour l'entraînement!")
+
+# CELLULE 13 : ENTRAÎNEMENT DES MODÈLES D'IA
+print("\n=== ENTRAÎNEMENT DES MODÈLES D'IA ===")
+print("🤖 DÉBUT DE L'ENTRAÎNEMENT:")
+
+# Dictionnaires pour stocker les modèles et résultats
+models = {}
+results = {}
+
+# 1. Random Forest
+print("\n1. 🌳 Random Forest:")
+rf_model = RandomForestClassifier(
+    n_estimators=100,
+    max_depth=15,
+    random_state=42,
+    class_weight='balanced'
+)
+rf_model.fit(X_train, y_train)
+models['Random Forest'] = rf_model
+
+# Évaluation Random Forest
+y_pred_rf = rf_model.predict(X_test)
+accuracy_rf = accuracy_score(y_test, y_pred_rf)
+results['Random Forest'] = accuracy_rf
+print(f"  ✓ Entraînement terminé")
+print(f"  ✓ Précision: {accuracy_rf:.3f} ({accuracy_rf*100:.1f}%)")
+
+# 2. Régression Logistique
+print("\n2. 📊 Régression Logistique:")
+lr_model = LogisticRegression(
+    random_state=42,
+    class_weight='balanced',
+    max_iter=1000
+)
+lr_model.fit(X_train, y_train)
+models['Logistic Regression'] = lr_model
+
+# Évaluation Régression Logistique
+y_pred_lr = lr_model.predict(X_test)
+accuracy_lr = accuracy_score(y_test, y_pred_lr)
+results['Logistic Regression'] = accuracy_lr
+print(f"  ✓ Entraînement terminé")
+print(f"  ✓ Précision: {accuracy_lr:.3f} ({accuracy_lr*100:.1f}%)")
+
+# Comparaison des modèles
+print(f"\n🏆 COMPARAISON DES MODÈLES:")
+for model_name, accuracy in results.items():
+    print(f"  {model_name}: {accuracy:.3f} ({accuracy*100:.1f}%)")
+
+# Sélection du meilleur modèle
+best_model_name = max(results, key=results.get)
+best_model = models[best_model_name]
+best_accuracy = results[best_model_name]
+
+print(f"\n👑 MEILLEUR MODÈLE: {best_model_name}")
+print(f"   Précision: {best_accuracy:.3f} ({best_accuracy*100:.1f}%)")
+
+# CELLULE 14 : ÉVALUATION DÉTAILLÉE DU MODÈLE
+print("\n=== ÉVALUATION DÉTAILLÉE DU MODÈLE ===")
+print(f"📋 ANALYSE COMPLÈTE DU MODÈLE: {best_model_name}")
+
+# Prédictions du meilleur modèle
+best_predictions = best_model.predict(X_test)
+class_names = target_encoder.classes_
+
+# Rapport de classification détaillé
+print(f"\n📊 RAPPORT DE CLASSIFICATION:")
+print("=" * 60)
+print(classification_report(y_test, best_predictions, target_names=class_names))
+
+# Matrice de confusion
+print(f"\n🔍 MATRICE DE CONFUSION:")
+cm = confusion_matrix(y_test, best_predictions)
+print(cm)
+
+# Visualisation de la matrice de confusion
+plt.figure(figsize=(12, 10))
+plt.subplot(2, 2, 1)
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+            xticklabels=class_names, yticklabels=class_names)
+plt.title(f'Matrice de Confusion - {best_model_name}', fontweight='bold')
+plt.xlabel('Prédictions')
+plt.ylabel('Valeurs Réelles')
+
+# Matrice de confusion normalisée
+plt.subplot(2, 2, 2)
+cm_norm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+sns.heatmap(cm_norm, annot=True, fmt='.2f', cmap='Blues', 
+            xticklabels=class_names, yticklabels=class_names)
+plt.title('Matrice de Confusion Normalisée', fontweight='bold')
+plt.xlabel('Prédictions')
+plt.ylabel('Valeurs Réelles')
+
+# Importance des caractéristiques (si Random Forest)
+if best_model_name == 'Random Forest':
+    feature_importance = pd.DataFrame({
+        'feature': X.columns,
+        'importance': best_model.feature_importances_
+    }).sort_values('importance', ascending=False)
+    
+    plt.subplot(2, 2, 3)
+    top_features = feature_importance.head(10)
+    plt.barh(range(len(top_features)), top_features['importance'])
+    plt.yticks(range(len(top_features)), top_features['feature'])
+    plt.title('Top 10 - Importance des Caractéristiques', fontweight='bold')
+    plt.xlabel('Importance')
+    
+    print(f"\n🎯 TOP 10 CARACTÉRISTIQUES LES PLUS IMPORTANTES:")
+    for i, (idx, row) in enumerate(feature_importance.head(10).iterrows(), 1):
+        print(f"  {i:2d}. {row['feature']}: {row['importance']:.4f}")
+
+# Précision par classe
+plt.subplot(2, 2, 4)
+from sklearn.metrics import precision_score, recall_score
+precisions = precision_score(y_test, best_predictions, average=None)
+recalls = recall_score(y_test, best_predictions, average=None)
+
+x = np.arange(len(class_names))
+width = 0.35
+
+plt.bar(x - width/2, precisions, width, label='Précision', alpha=0.8)
+plt.bar(x + width/2, recalls, width, label='Rappel', alpha=0.8)
+plt.xlabel('Classes de Triage')
+plt.ylabel('Score')
+plt.title('Précision et Rappel par Classe', fontweight='bold')
+plt.xticks(x, class_names, rotation=45)
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
+print(f"\n✅ ÉVALUATION TERMINÉE")
+
+# CELLULE 15 : FONCTION DE PRÉDICTION PRATIQUE
+print("\n=== FONCTION DE PRÉDICTION PRATIQUE ===")
+print("🎯 CRÉATION DE LA FONCTION D'UTILISATION:")
+
+def predire_triage_patient(patient_data, model, scaler, encoders, target_encoder):
+    """
+    Fonction pour prédire le niveau de triage d'un nouveau patient
+    
+    Args:
+        patient_data: dict avec les données du patient
+        model: modèle entraîné
+        scaler: normalisateur
+        encoders: encodeurs pour variables catégorielles
+        target_encoder: encodeur pour la variable cible
+    
+    Returns:
+        tuple: (niveau_triage, probabilités)
+    """
+    try:
+        # Créer DataFrame
+        patient_df = pd.DataFrame([patient_data])
+        
+        # Encoder les variables catégorielles
+        for col, encoder in encoders.items():
+            if col in patient_df.columns:
+                patient_df[col] = encoder.transform(patient_df[col])
+        
+        # Normaliser
+        patient_scaled = scaler.transform(patient_df)
+        
+        # Prédire
+        prediction = model.predict(patient_scaled)[0]
+        predicted_class = target_encoder.inverse_transform([prediction])[0]
+        
+        # Probabilités
+        if hasattr(model, 'predict_proba'):
+            probabilities = model.predict_proba(patient_scaled)[0]
+            prob_dict = {target_encoder.classes_[i]: prob for i, prob in enumerate(probabilities)}
+        else:
+            prob_dict = None
+        
+        return predicted_class, prob_dict
+        
+    except Exception as e:
+        return f"Erreur: {str(e)}", None
+
+print("✅ Fonction de prédiction créée avec succès!")
+
+# Exemple d'utilisation
+print(f"\n💡 EXEMPLE D'UTILISATION:")
+print("""
+# Données d'un nouveau patient
+nouveau_patient = {
+    'chest_pain_type': 2,
+    'blood_pressure': 140,
+    'cholesterol': 250,
+    'max_heart_rate': 150,
+    'age': 45,
+    # ... autres variables selon votre dataset
+}
+
+# Prédiction
+niveau_triage, probabilites = predire_triage_patient(
+    nouveau_patient, best_model, scaler, label_encoders, target_encoder
+)
+
+print(f"Niveau de triage prédit: {niveau_triage}")
+if probabilites:
+    print("Probabilités par classe:")
+    for classe, prob in probabilites.items():
+        print(f"  {classe}: {prob:.3f}")
+""")
+
+# CELLULE 16 : SAUVEGARDE DU MODÈLE ET EXPORTATION
+print("\n=== SAUVEGARDE DU MODÈLE ===")
+print("💾 SAUVEGARDE DES COMPOSANTS:")
+
+import joblib
+
+# Sauvegarder tous les composants
+joblib.dump(best_model, 'modele_triage_medical.pkl')
+joblib.dump(scaler, 'scaler_triage.pkl')
+joblib.dump(label_encoders, 'encoders_triage.pkl')
+joblib.dump(target_encoder, 'target_encoder_triage.pkl')
+
+print("✅ Modèle sauvegardé dans 'modele_triage_medical.pkl'")
+print("✅ Scaler sauvegardé dans 'scaler_triage.pkl'")
+print("✅ Encodeurs sauvegardés dans 'encoders_triage.pkl'")
+print("✅ Encodeur cible sauvegardé dans 'target_encoder_triage.pkl'")

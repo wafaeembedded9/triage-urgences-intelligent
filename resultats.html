@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏥 Résultats du Triage - {{ triage.nom }} {{ triage.prenom }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #2c3e50;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .navbar h1 {
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            transition: all 0.3s;
+            background: rgba(255,255,255,0.1);
+            font-weight: 500;
+            font-size: 0.9em;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 0.9em;
+        }
+
+        .user-info .role {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+        }
+
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.9em;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #c0392b;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .result-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .result-header {
+            padding: 40px;
+            text-align: center;
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: white;
+        }
+
+        .result-header h1 {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+        }
+
+        .result-body {
+            padding: 40px;
+        }
+
+        .triage-result {
+            text-align: center;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            border-left: 8px solid;
+        }
+
+        .triage-level {
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        .triage-message {
+            font-size: 1.3em;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .urgence-score {
+            background: rgba(0,0,0,0.1);
+            padding: 15px 30px;
+            border-radius: 25px;
+            display: inline-block;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+
+        .patient-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+
+        .info-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            border-left: 5px solid #3498db;
+        }
+
+        .info-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            font-size: 1em;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .info-value {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .probability-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 30px 0;
+        }
+
+        .probability-section h3 {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 1.3em;
+        }
+
+        .probability-bars {
+            display: grid;
+            gap: 15px;
+        }
+
+        .probability-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .probability-label {
+            min-width: 120px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .bar-container {
+            flex: 1;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 25px;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-weight: bold;
+            font-size: 0.8em;
+        }
+
+        .bar-red { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+        .bar-orange { background: linear-gradient(90deg, #f39c12, #e67e22); }
+        .bar-yellow { background: linear-gradient(90deg, #f1c40f, #f39c12); color: #2c3e50; }
+        .bar-green { background: linear-gradient(90deg, #27ae60, #2ecc71); }
+
+        .actions {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 40px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(39, 174, 96, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(149, 165, 166, 0.3);
+        }
+
+        .timestamp {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f1f2f6;
+            border-radius: 10px;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        @media (max-width: 768px) {
+            .patient-info {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .actions {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .container {
+                padding: 0 15px;
+            }
+            
+            .result-body {
+                padding: 20px;
+            }
+        }
+
+        /* Animation d'entrée */
+        .result-card {
+            animation: slideInUp 0.6s ease-out;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Couleurs selon le niveau de triage */
+        .triage-red {
+            background: linear-gradient(135deg, #e74c3c20, #c0392b20);
+            border-left-color: #e74c3c;
+        }
+
+        .triage-orange {
+            background: linear-gradient(135deg, #f39c1220, #e67e2220);
+            border-left-color: #f39c12;
+        }
+
+        .triage-yellow {
+            background: linear-gradient(135deg, #f1c40f20, #f39c1220);
+            border-left-color: #f1c40f;
+        }
+
+        .triage-green {
+            background: linear-gradient(135deg, #27ae6020, #2ecc7120);
+            border-left-color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h1>🏥 Résultats du Triage IA</h1>
+        <div class="nav-links">
+            <a href="/triage">🩺 Nouveau Triage</a>
+            <a href="/dashboard">📊 Dashboard</a>
+            <a href="/historique">📋 Historique</a>
+        </div>
+        <div class="user-info">
+            <span>👤 {{ user.prenom }} {{ user.nom }}</span>
+            <span class="role">{{ user.role|title }}</span>
+            <a href="/logout" class="logout-btn">🚪 Déconnexion</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="result-card">
+            <div class="result-header">
+                <h1>📋 Résultat du Triage</h1>
+                <p>Analyse automatique par Intelligence Artificielle</p>
+            </div>
+
+            <div class="result-body">
+                <div class="alert alert-info">
+                    ℹ️ Patient <strong>{{ triage.nom }} {{ triage.prenom }}</strong> évalué avec succès par le système IA
+                </div>
+
+                <!-- Résultat principal -->
+                <div class="triage-result triage-{{ triage.niveau_triage }}" style="border-left-color: {{ info.couleur }}; background: {{ info.couleur }}20;">
+                    <div class="triage-level" style="color: {{ info.couleur }};">
+                        {{ info.niveau_nom }}
+                    </div>
+                    <div class="triage-message" style="color: {{ info.couleur }};">
+                        {{ info.message }}
+                    </div>
+                    <div class="urgence-score">
+                        📈 Score d'urgence: {{ triage.score_urgence }}%
+                    </div>
+                </div>
+
+                <!-- Informations patient -->
+                <div class="patient-info">
+                    <div class="info-section">
+                        <h3>👤 Informations Patient</h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Nom complet:</span>
+                                <span class="info-value">{{ triage.nom }} {{ triage.prenom }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Âge:</span>
+                                <span class="info-value">{{ triage.patient_info.age }} ans</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Genre:</span>
+                                <span class="info-value">{{ triage.patient_info.genre }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Statut:</span>
+                                <span class="info-value">En attente</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-section">
+                        <h3>🩺 Données Médicales</h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Tension artérielle:</span>
+                                <span class="info-value">{{ triage.patient_info.tension }} mmHg</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Cholestérol:</span>
+                                <span class="info-value">{{ triage.patient_info.cholesterol }} mg/dl</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Niveau triage:</span>
+                                <span class="info-value" style="color: {{ info.couleur }};">{{ triage.niveau_triage|upper }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Score urgence:</span>
+                                <span class="info-value">{{ triage.score_urgence }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Probabilités -->
+                <div class="probability-section">
+                    <h3>📊 Analyse Probabiliste IA</h3>
+                    <div class="probability-bars">
+                        {% set niveaux = {
+                            'red': 'URGENCE VITALE',
+                            'orange': 'TRÈS URGENT',
+                            'yellow': 'URGENT', 
+                            'green': 'NON URGENT'
+                        } %}
+                        
+                        {% for niveau, nom in niveaux.items() %}
+                            {% if triage.probabilites[niveau] %}
+                                {% set percentage = triage.probabilites[niveau].replace('%', '')|float %}
+                                <div class="probability-bar">
+                                    <div class="probability-label">{{ nom }}</div>
+                                    <div class="bar-container">
+                                        <div class="bar-fill bar-{{ niveau }}" style="width: {{ percentage }}%;">
+                                            {{ triage.probabilites[niveau] }}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="actions">
+                    <a href="/triage" class="btn btn-primary">
+                        🩺 Nouveau Triage
+                    </a>
+                    <a href="/dashboard" class="btn btn-success">
+                        📊 Voir Dashboard
+                    </a>
+                    {% if triage.triage_id %}
+                    <a href="/prendre_en_charge/{{ triage.triage_id }}" class="btn btn-secondary">
+                        👨‍⚕️ Prendre en charge
+                    </a>
+                    {% endif %}
+                </div>
+
+                <!-- Horodatage CORRIGÉ -->
+                <div class="timestamp">
+                    🕒 Triage effectué le 
+                    {% if triage.date_triage %}
+                        {{ triage.date_triage.strftime('%d/%m/%Y à %H:%M') }}
+                    {% else %}
+                        {{ moment().format('DD/MM/YYYY à HH:mm') if moment is defined else 'maintenant' }}
+                    {% endif %}
+                    <br>
+                    <small>Système de Triage IA - Version 1.0</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Animation des barres de probabilité
+        window.addEventListener('load', function() {
+            const bars = document.querySelectorAll('.bar-fill');
+            bars.forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 500);
+            });
+        });
+    </script>
+</body>
+</html>
